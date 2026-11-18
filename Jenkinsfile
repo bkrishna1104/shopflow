@@ -82,7 +82,7 @@ pipeline {
     // POLL SonarCloud for the verdict, so no inbound webhook to your home network.
     // Skipped for tag builds: the same commit was already analysed on main.
     stage('SonarCloud') {
-      when { not { buildingTag() } }
+      when { anyOf { changeRequest(); branch 'main' } }
       steps {
         withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
           script {
