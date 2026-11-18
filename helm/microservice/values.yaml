@@ -1,0 +1,86 @@
+# Defaults for every service. Each service overrides what it needs in
+# helm/values/<environment>/<service>.yaml.
+
+# Name used for the Deployment, Service (= DNS name other services call), labels.
+name: ""
+
+image:
+  repository: ""                 # e.g. shopflow/user-service
+  tag: ""                        # e.g. 1.1.0 or develop-a5e7d5b (set by the pipeline)
+  # IfNotPresent: use the image we loaded into the nodes. Tags are immutable
+  # (one tag = one commit), so never needing to re-pull is correct.
+  pullPolicy: IfNotPresent
+
+replicaCount: 2                  # ignored when autoscaling.enabled (HPA owns replicas)
+containerPort: 8080
+
+service:
+  type: ClusterIP                # internal only (reached from outside via port-forward / Gateway)
+  port: 8080
+  nodePort: null
+
+# Plain configuration -> ConfigMap -> environment variables.
+env: {}
+
+# Secrets -> environment variables. Values never appear in Git or in Helm values.
+# - name: DB_PASSWORD
+#   secretName: user-service-db
+#   key: DB_PASSWORD
+secretEnv: []
+
+# requests: what the scheduler RESERVES for the pod (and what HPA % is based on).
+# limits: memory only. A memory limit stops a leak from killing the node; a CPU
+# limit would throttle Node.js under load and inflate P95 latency (our SLO!).
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+probes:
+  # startup: give the app time to boot before liveness starts judging it.
+  startup:   { path: /health/live,  periodSeconds: 2, failureThreshold: 30 }
+  # liveness: process stuck -> restart container. Never checks the DB.
+  liveness:  { path: /health/live,  periodSeconds: 10, failureThreshold: 3 }
+  # readiness: can't reach DB / shutting down -> remove from Service endpoints.
+  readiness: { path: /health/ready, periodSeconds: 5, failureThreshold: 2 }
+
+# Graceful shutdown (see src/lib/server.js): after SIGTERM the app reports
+# not-ready and keeps serving for this long while Kubernetes stops routing to it.
+shutdownDelaySeconds: 5
+terminationGracePeriodSeconds: 30
+
+autoscaling:
+  enabled: true
+  minReplicas: 2                 # 2 = survives one pod / node failure
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
+
+# During voluntary disruptions (node drain, cluster upgrade) keep >= 1 pod running.
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# Flyway migrations as a Helm hook Job: runs ONCE before install/upgrade, and the
+# release only proceeds if it succeeds. (Not an initContainer: that would run on
+# every pod start, and new code must not start before its schema exists.)
+migrations:
+  enabled: false
+  image:
+    repository: ""               # e.g. shopflow/user-service-migrations
+    tag: ""
+  backoffLimit: 2
+
+# Hardening that applies to every container.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000                # the 'node' user in node:24-alpine
+  runAsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true   # the app never writes to disk (logs go to stdout)
+  capabilities:
+    drop: ["ALL"]

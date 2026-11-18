@@ -1,0 +1,15 @@
+# Non-secret configuration as environment variables (12-factor: config in the
+# environment). The same image runs in staging and production; only this changes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "microservice.name" . }}-config
+  labels:
+    {{- include "microservice.labels" . | nindent 4 }}
+data:
+  SERVICE_NAME: {{ include "microservice.name" . | quote }}
+  PORT: {{ .Values.containerPort | quote }}
+  SHUTDOWN_DELAY_MS: {{ mul .Values.shutdownDelaySeconds 1000 | quote }}
+  {{- range $key, $value := .Values.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

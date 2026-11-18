@@ -1,0 +1,9 @@
+apiVersion: v2
+name: microservice
+description: >-
+  One reusable chart for every ShopFlow service. Each service is installed as its
+  own Helm release with its own values file, so each can be upgraded, rolled back
+  and (Phase 6) canaried independently.
+type: application
+version: 0.1.0        # version of the CHART (the packaging)
+appVersion: "1.1.0"   # informational; the real app version is image.tag per release

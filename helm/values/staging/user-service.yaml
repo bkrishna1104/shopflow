@@ -1,0 +1,18 @@
+# Staging values for user-service. Image tags are set at deploy time:
+#   --set image.tag=<version> --set migrations.image.tag=<version>
+name: user-service
+image:
+  repository: shopflow/user-service
+migrations:
+  enabled: true
+  image:
+    repository: shopflow/user-service-migrations
+secretEnv:
+  - name: DB_PASSWORD
+    secretName: user-service-db          # created by scripts/staging-up.sh from .env
+    key: DB_PASSWORD
+env:
+  DB_HOST: postgres
+  DB_NAME: users_db
+  DB_USER: users_svc
+  LOG_LEVEL: info

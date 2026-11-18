@@ -1,0 +1,23 @@
+# Staging values for payment-service. Image tags are set at deploy time:
+#   --set image.tag=<version> --set migrations.image.tag=<version>
+name: payment-service
+image:
+  repository: shopflow/payment-service
+migrations:
+  enabled: true
+  image:
+    repository: shopflow/payment-service-migrations
+secretEnv:
+  - name: DB_PASSWORD
+    secretName: payment-service-db          # created by scripts/staging-up.sh from .env
+    key: DB_PASSWORD
+env:
+  DB_HOST: postgres
+  DB_NAME: payments_db
+  DB_USER: payments_svc
+  LOG_LEVEL: info
+  NOTIFICATION_SERVICE_URL: http://notification-service:8080
+  # Chaos knobs: 0 = off. The final demo deploys a bad canary by changing these.
+  CHAOS_LATENCY_MS: "0"
+  CHAOS_ERROR_RATE: "0"
+  CHAOS_DECLINE_RATE: "0"
