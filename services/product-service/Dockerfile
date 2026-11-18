@@ -28,7 +28,7 @@ COPY src ./src
 ARG APP_VERSION=dev
 ENV APP_VERSION=${APP_VERSION}
 LABEL org.opencontainers.image.version=${APP_VERSION} \
-      org.opencontainers.image.source="https://github.com/YOUR_GITHUB_USER/shopflow"
+      org.opencontainers.image.source="https://github.com/bkrishna1104/shopflow"
 
 # Never run as root: if the app is compromised, the attacker is not root in
 # the container. The official node image ships a ready-made 'node' user.
