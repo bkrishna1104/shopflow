@@ -1,0 +1,172 @@
+/* ShopFlow — a shop counter. Cool steel greys, navy ink, one signal blue.
+   The one bold element is the thermal receipt; everything else stays quiet. */
+:root {
+  --steel: #e6eaef;      /* page */
+  --shelf: #f6f8fa;      /* product rows */
+  --ink: #1b2533;        /* text */
+  --ink-soft: #5a6676;   /* secondary text */
+  --rule: #cfd6de;       /* borders */
+  --signal: #2350d8;     /* actions */
+  --paid: #1d7f55;
+  --declined: #b8402b;
+  --warn: #a8671a;
+  --paper: #ffffff;
+
+  --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: light; }
+body {
+  margin: 0;
+  background: var(--steel);
+  color: var(--ink);
+  font: 400 var(--step-0)/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2 { margin: 0; line-height: 1.15; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+
+/* ---------- Top bar ---------- */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  padding: 1rem clamp(1rem, 4vw, 3rem);
+  background: var(--ink); color: #fff;
+}
+.brand { display: flex; align-items: center; gap: .6rem; }
+.brand-mark {
+  width: 1.4rem; height: 1.4rem; border-radius: 3px;
+  background: linear-gradient(90deg, #fff 0 30%, transparent 30% 45%, #fff 45% 60%, transparent 60% 72%, #fff 72%);
+}
+.brand-name { font-weight: 800; font-size: var(--step-1); letter-spacing: -.01em; }
+.shopper { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.shopper label { color: #b9c3cf; font-size: .9rem; }
+.shopper select {
+  min-width: 13rem; padding: .45rem .6rem; border-radius: 6px;
+  border: 1px solid #3b4a5e; background: #26344a; color: #fff;
+}
+.topbar .btn-quiet { color: #fff; border-color: #3b4a5e; }
+
+/* ---------- Buttons ---------- */
+.btn-primary, .btn-quiet {
+  border-radius: 6px; padding: .5rem .9rem; cursor: pointer; font-weight: 600; font-size: .95rem;
+}
+.btn-primary { background: var(--signal); color: #fff; border: 1px solid var(--signal); }
+.btn-primary:hover { background: #1b41b5; }
+.btn-primary:disabled { background: #9aa6b4; border-color: #9aa6b4; cursor: not-allowed; }
+.btn-quiet { background: transparent; border: 1px solid var(--rule); }
+.btn-quiet:hover { border-color: currentColor; }
+
+/* ---------- Layout ---------- */
+.layout {
+  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(19rem, 1fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  max-width: 82rem; margin: 0 auto;
+}
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+/* ---------- Shelf ---------- */
+.shelf h1 { font-size: var(--step-3); font-weight: 800; letter-spacing: -.025em; max-width: 18ch; }
+.lede { color: var(--ink-soft); max-width: 55ch; margin: .75rem 0 2rem; }
+.products { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.product {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem 1.5rem;
+  padding: 1.1rem .25rem; border-bottom: 1px solid var(--rule);
+}
+.product-name { font-weight: 600; font-size: var(--step-1); }
+.product-meta { display: flex; align-items: center; gap: .75rem; margin-top: .35rem; color: var(--ink-soft); font-size: .9rem; }
+.stock-bar { width: 6rem; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
+.stock-bar span { display: block; height: 100%; background: var(--paid); }
+.stock-bar.low span { background: var(--warn); }
+.stock-bar.out span { width: 0 !important; }
+.price { font-weight: 700; font-size: var(--step-1); font-variant-numeric: tabular-nums; text-align: right; }
+.buy { display: flex; gap: .5rem; align-items: center; }
+.buy input { width: 4rem; padding: .45rem .5rem; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); }
+@media (max-width: 560px) {
+  .product { grid-template-columns: 1fr auto; }
+  .buy { grid-column: 1 / -1; }
+}
+
+/* ---------- Counter: the receipt printer ---------- */
+.counter { align-self: start; position: sticky; top: 1.5rem; }
+@media (max-width: 860px) { .counter { position: static; } }
+.slot { height: 10px; border-radius: 6px; background: var(--ink); box-shadow: inset 0 3px 3px rgba(0,0,0,.5); }
+.receipt-area { min-height: 6rem; margin: 0 .9rem; overflow: hidden; }
+.receipt-empty { color: var(--ink-soft); font-size: .9rem; padding: 1rem .25rem; margin: 0; }
+
+.receipt {
+  --tear: 8px;
+  background: var(--paper);
+  font: 400 .85rem/1.55 var(--mono);
+  padding: 1.25rem 1.25rem calc(1.25rem + var(--tear));
+  box-shadow: 0 6px 14px rgba(27, 37, 51, .12);
+  /* zig-zag torn bottom edge */
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - var(--tear)) no-repeat,
+                conic-gradient(from -45deg at bottom, transparent, #000 1deg 89deg, transparent 90deg) bottom / calc(var(--tear) * 2) var(--tear) repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - var(--tear)) no-repeat,
+                conic-gradient(from -45deg at bottom, transparent, #000 1deg 89deg, transparent 90deg) bottom / calc(var(--tear) * 2) var(--tear) repeat-x;
+  animation: print 900ms steps(12, end) both;
+}
+@keyframes print { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .receipt { animation: none; } }
+.receipt-head { text-align: center; font-weight: 500; }
+.receipt-row { display: flex; justify-content: space-between; gap: 1rem; }
+.receipt hr { border: 0; border-top: 1px dashed #9aa6b4; margin: .6rem 0; }
+.receipt-total { font-weight: 500; font-size: 1rem; }
+.receipt-status { text-align: center; font-weight: 500; font-size: 1.05rem; margin: .5rem 0; padding: .3rem; border: 1.5px solid currentColor; }
+.receipt-status.paid { color: var(--paid); }
+.receipt-status.declined, .receipt-status.failed { color: var(--declined); }
+.receipt-foot { color: var(--ink-soft); font-size: .78rem; }
+
+/* ---------- History ---------- */
+.history { margin-top: 2rem; }
+.history h2 { font-size: var(--step-0); font-weight: 700; padding-bottom: .5rem; border-bottom: 2px solid var(--ink); }
+.orders, .inbox { list-style: none; margin: 0; padding: 0; }
+.orders li, .inbox li { padding: .65rem 0; border-bottom: 1px solid var(--rule); font-size: .92rem; }
+.orders li { display: grid; grid-template-columns: 3.2rem 1fr auto; gap: .75rem; align-items: baseline; }
+.order-id { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.chip { font-size: .78rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; }
+.chip.PAID { background: #dcefe6; color: var(--paid); }
+.chip.PAYMENT_FAILED { background: #f6e0db; color: var(--declined); }
+.chip.PENDING { background: #f3e7d4; color: var(--warn); }
+.inbox time { display: block; color: var(--ink-soft); font-size: .8rem; }
+.history-empty { color: var(--ink-soft); }
+
+/* ---------- Services strip ---------- */
+.services {
+  max-width: 82rem; margin: 1rem auto 0; padding: 1.5rem clamp(1.5rem, 4vw, 3rem) 2.5rem;
+  border-top: 1px solid var(--rule);
+}
+.services h2 { font-size: var(--step-0); font-weight: 700; margin-bottom: .75rem; }
+.services ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem 2rem; }
+.services li { display: flex; align-items: center; gap: .5rem; font-size: .9rem; }
+.dot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--paid); flex: none; }
+.dot.down { background: var(--declined); }
+.svc-version { font-weight: 700; font-variant-numeric: tabular-nums; }
+.svc-ms { color: var(--ink-soft); }
+.services-note { color: var(--ink-soft); font-size: .85rem; margin: .9rem 0 0; }
+
+/* ---------- Dialog + toast ---------- */
+dialog { border: 0; border-radius: 10px; padding: 1.75rem; width: min(26rem, 92vw); box-shadow: 0 20px 50px rgba(27, 37, 51, .3); }
+dialog::backdrop { background: rgba(27, 37, 51, .45); }
+dialog h2 { font-size: var(--step-1); margin-bottom: 1rem; }
+dialog label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: .9rem; }
+dialog input { display: block; width: 100%; margin-top: .3rem; padding: .55rem .6rem; border: 1px solid var(--rule); border-radius: 6px; font-weight: 400; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: .5rem; }
+.form-error { color: var(--declined); font-size: .9rem; min-height: 1.2em; margin: 0; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 1.5rem; transform: translate(-50%, 150%);
+  max-width: min(32rem, 92vw); padding: .8rem 1.1rem; border-radius: 8px;
+  background: var(--ink); color: #fff; font-size: .95rem; transition: transform .25s ease;
+}
+.toast.show { transform: translate(-50%, 0); }
+.toast.error { background: var(--declined); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }

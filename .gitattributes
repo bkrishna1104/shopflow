@@ -1,0 +1,8 @@
+# IMPORTANT on Windows: Git may convert line endings to CRLF on checkout.
+# A shell script with CRLF fails inside Linux containers with
+# "/bin/bash^M: bad interpreter". Force LF for everything that runs on Linux.
+* text=auto eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+Dockerfile text eol=lf
+*.ps1 text eol=crlf

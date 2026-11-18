@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShopFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">ShopFlow</span>
+    </div>
+    <div class="shopper">
+      <label for="customer">Shopping as</label>
+      <select id="customer"></select>
+      <button type="button" class="btn-quiet" id="new-customer-btn">New customer</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="shelf" aria-labelledby="shelf-title">
+      <h1 id="shelf-title">Desk gear, in stock now</h1>
+      <p class="lede">Pick a quantity and buy. Your order goes through five services; the receipt shows what happened.</p>
+      <ul class="products" id="products" aria-live="polite"></ul>
+    </section>
+
+    <aside class="counter">
+      <div class="slot" aria-hidden="true"></div>
+      <div class="receipt-area" id="receipt-area" aria-live="polite">
+        <p class="receipt-empty">Your receipt will print here after you buy something.</p>
+      </div>
+
+      <section class="history">
+        <h2>Your orders</h2>
+        <ol class="orders" id="orders"></ol>
+      </section>
+
+      <section class="history">
+        <h2>Messages we sent you</h2>
+        <ul class="inbox" id="inbox"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="services" aria-labelledby="services-title">
+    <h2 id="services-title">Services</h2>
+    <ul id="services"></ul>
+    <p class="services-note">Checked every 5 seconds. During a canary release you'll see versions change between checks.</p>
+  </footer>
+
+  <dialog id="customer-dialog">
+    <form method="dialog" id="customer-form">
+      <h2>New customer</h2>
+      <label>Name <input name="name" required maxlength="200" autocomplete="name"></label>
+      <label>Email <input name="email" type="email" required maxlength="320" autocomplete="email"></label>
+      <p class="form-error" id="customer-error" role="alert"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn-quiet" id="customer-cancel">Cancel</button>
+        <button type="submit" class="btn-primary">Create customer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>

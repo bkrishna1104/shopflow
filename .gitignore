@@ -1,0 +1,17 @@
+# Secrets — this repo is PUBLIC
+.env
+*.pem
+*.key
+kubeconfig*
+
+# Node
+node_modules/
+coverage/
+npm-debug.log*
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

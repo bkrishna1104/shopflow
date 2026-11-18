@@ -1,0 +1,179 @@
+# ---------------------------------------------------------------------------
+# ShopFlow — the whole system on one machine.
+#   docker compose up -d --build      start everything
+#   docker compose ps                 status (all should be "healthy")
+#   docker compose logs -f order-service
+#   docker compose down               stop   (add -v to also wipe the database)
+#
+# Start-up order (enforced with depends_on conditions):
+#   postgres (healthy) -> *-migrate (Flyway, runs and exits 0) -> services (healthy)
+# ---------------------------------------------------------------------------
+name: shopflow
+
+# YAML anchors: define common settings once, reuse with <<: *name
+x-flyway: &flyway
+  image: flyway/flyway:11
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: "no"
+
+x-node-service: &node-service
+  restart: unless-stopped
+  healthcheck:
+    # Same endpoint Kubernetes will use as its readiness probe in Phase 5.
+    test: ["CMD", "wget", "-qO-", "http://localhost:8080/health/ready"]
+    interval: 10s
+    timeout: 3s
+    retries: 5
+    start_period: 10s
+
+services:
+  # ---------------- Database ----------------
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      USERS_DB_PASSWORD: ${USERS_DB_PASSWORD:?}
+      PRODUCTS_DB_PASSWORD: ${PRODUCTS_DB_PASSWORD:?}
+      ORDERS_DB_PASSWORD: ${ORDERS_DB_PASSWORD:?}
+      PAYMENTS_DB_PASSWORD: ${PAYMENTS_DB_PASSWORD:?}
+      NOTIFICATIONS_DB_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init-db.sh:/docker-entrypoint-initdb.d/01-init-db.sh:ro
+    ports:
+      - "5432:5432"   # so you can connect with DBeaver/pgAdmin from Windows
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ---------------- Migrations (Flyway) ----------------
+  # One short-lived container per database. In Kubernetes these become a
+  # Job / init-container that runs BEFORE the new app version starts.
+  user-migrate:
+    <<: *flyway
+    command: -url=jdbc:postgresql://postgres:5432/users_db -user=users_svc -password=${USERS_DB_PASSWORD} -locations=filesystem:/flyway/sql -connectRetries=10 migrate
+    volumes: ["./services/user-service/db/migration:/flyway/sql:ro"]
+
+  product-migrate:
+    <<: *flyway
+    command: -url=jdbc:postgresql://postgres:5432/products_db -user=products_svc -password=${PRODUCTS_DB_PASSWORD} -locations=filesystem:/flyway/sql -connectRetries=10 migrate
+    volumes: ["./services/product-service/db/migration:/flyway/sql:ro"]
+
+  order-migrate:
+    <<: *flyway
+    command: -url=jdbc:postgresql://postgres:5432/orders_db -user=orders_svc -password=${ORDERS_DB_PASSWORD} -locations=filesystem:/flyway/sql -connectRetries=10 migrate
+    volumes: ["./services/order-service/db/migration:/flyway/sql:ro"]
+
+  payment-migrate:
+    <<: *flyway
+    command: -url=jdbc:postgresql://postgres:5432/payments_db -user=payments_svc -password=${PAYMENTS_DB_PASSWORD} -locations=filesystem:/flyway/sql -connectRetries=10 migrate
+    volumes: ["./services/payment-service/db/migration:/flyway/sql:ro"]
+
+  notification-migrate:
+    <<: *flyway
+    command: -url=jdbc:postgresql://postgres:5432/notifications_db -user=notifications_svc -password=${NOTIFICATIONS_DB_PASSWORD} -locations=filesystem:/flyway/sql -connectRetries=10 migrate
+    volumes: ["./services/notification-service/db/migration:/flyway/sql:ro"]
+
+  # ---------------- Microservices ----------------
+  # Every container listens on 8080 internally; only the HOST port differs.
+  # Inside the Docker network services call each other by NAME, e.g.
+  # http://payment-service:8080 (Docker's built-in DNS) — same idea as K8s Services.
+  user-service:
+    <<: *node-service
+    build: { context: ./services/user-service, args: { APP_VERSION: "${APP_VERSION:-local}" } }
+    image: shopflow/user-service:${APP_VERSION:-local}
+    environment:
+      DB_HOST: postgres
+      DB_NAME: users_db
+      DB_USER: users_svc
+      DB_PASSWORD: ${USERS_DB_PASSWORD}
+    ports: ["3001:8080"]
+    depends_on:
+      user-migrate: { condition: service_completed_successfully }
+
+  product-service:
+    <<: *node-service
+    build: { context: ./services/product-service, args: { APP_VERSION: "${APP_VERSION:-local}" } }
+    image: shopflow/product-service:${APP_VERSION:-local}
+    environment:
+      DB_HOST: postgres
+      DB_NAME: products_db
+      DB_USER: products_svc
+      DB_PASSWORD: ${PRODUCTS_DB_PASSWORD}
+    ports: ["3002:8080"]
+    depends_on:
+      product-migrate: { condition: service_completed_successfully }
+
+  notification-service:
+    <<: *node-service
+    build: { context: ./services/notification-service, args: { APP_VERSION: "${APP_VERSION:-local}" } }
+    image: shopflow/notification-service:${APP_VERSION:-local}
+    environment:
+      DB_HOST: postgres
+      DB_NAME: notifications_db
+      DB_USER: notifications_svc
+      DB_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD}
+    ports: ["3005:8080"]
+    depends_on:
+      notification-migrate: { condition: service_completed_successfully }
+
+  payment-service:
+    <<: *node-service
+    build: { context: ./services/payment-service, args: { APP_VERSION: "${APP_VERSION:-local}" } }
+    image: shopflow/payment-service:${APP_VERSION:-local}
+    environment:
+      DB_HOST: postgres
+      DB_NAME: payments_db
+      DB_USER: payments_svc
+      DB_PASSWORD: ${PAYMENTS_DB_PASSWORD}
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
+      CHAOS_LATENCY_MS: ${CHAOS_LATENCY_MS:-0}
+      CHAOS_ERROR_RATE: ${CHAOS_ERROR_RATE:-0}
+      CHAOS_DECLINE_RATE: ${CHAOS_DECLINE_RATE:-0}
+    ports: ["3004:8080"]
+    depends_on:
+      payment-migrate: { condition: service_completed_successfully }
+      notification-service: { condition: service_healthy }
+
+  order-service:
+    <<: *node-service
+    build: { context: ./services/order-service, args: { APP_VERSION: "${APP_VERSION:-local}" } }
+    image: shopflow/order-service:${APP_VERSION:-local}
+    environment:
+      DB_HOST: postgres
+      DB_NAME: orders_db
+      DB_USER: orders_svc
+      DB_PASSWORD: ${ORDERS_DB_PASSWORD}
+      USER_SERVICE_URL: http://user-service:8080
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      PAYMENT_SERVICE_URL: http://payment-service:8080
+    ports: ["3003:8080"]
+    depends_on:
+      order-migrate: { condition: service_completed_successfully }
+      user-service: { condition: service_healthy }
+      product-service: { condition: service_healthy }
+      payment-service: { condition: service_healthy }
+
+  # ---------------- Web UI (the only thing a customer talks to) ----------------
+  # Open http://localhost:3000 . It calls the 5 APIs on the browser's behalf (BFF).
+  # In Kubernetes this is the service the Ingress exposes to the internet.
+  web-ui:
+    <<: *node-service
+    build: { context: ./services/web-ui, args: { APP_VERSION: "${APP_VERSION:-local}" } }
+    image: shopflow/web-ui:${APP_VERSION:-local}
+    environment:
+      USER_SERVICE_URL: http://user-service:8080
+      PRODUCT_SERVICE_URL: http://product-service:8080
+      ORDER_SERVICE_URL: http://order-service:8080
+      PAYMENT_SERVICE_URL: http://payment-service:8080
+      NOTIFICATION_SERVICE_URL: http://notification-service:8080
+    ports: ["3000:8080"]
+    depends_on:
+      order-service: { condition: service_healthy }
+
+volumes:
+  pgdata:
