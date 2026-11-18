@@ -1,0 +1,7 @@
+# Accepted vulnerabilities (Trivy skips these IDs in the CI security gate).
+# Rules for adding an entry:
+#   1. Only after checking it really doesn't affect us.
+#   2. Always write WHY and an expiry date, and remove it when a fix ships.
+# Format:
+#   # <reason> — review by YYYY-MM-DD
+#   CVE-XXXX-YYYYY

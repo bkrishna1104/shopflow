@@ -6,18 +6,26 @@
 # WHY: the final image has no npm cache, no test files, no devDependencies
 #      -> smaller image, faster pulls on EKS, fewer CVEs for Trivy to flag.
 # ---------------------------------------------------------------------------
-ARG NODE_IMAGE=node:24-alpine
-
-FROM ${NODE_IMAGE} AS deps
+# Base image written literally (not via ARG) so Dependabot can see and update it.
+FROM node:24-alpine AS deps
 WORKDIR /app
-# Copy ONLY the package files first. Docker caches each layer; as long as
-# package*.json don't change, `npm ci` is skipped on rebuilds (seconds, not minutes).
+# Copy ONLY the package files first, so `npm ci` is cached until dependencies change.
 COPY package.json package-lock.json ./
 # npm ci = exact versions from package-lock.json (reproducible), unlike npm install.
 RUN npm ci --omit=dev && npm cache clean --force
 
-FROM ${NODE_IMAGE} AS runtime
+FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
+
+# Security hardening (this is what the Trivy gate checks):
+#  - apk upgrade: pick up Alpine security patches released after the base image was built.
+#  - remove npm/npx/corepack: the app is started with `node` directly, so the package
+#    managers are dead weight in production, and their bundled dependencies are a
+#    frequent source of HIGH CVEs in image scans. Less software = smaller attack surface.
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+           /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
@@ -31,8 +39,7 @@ ENV APP_VERSION=${APP_VERSION}
 LABEL org.opencontainers.image.version=${APP_VERSION} \
       org.opencontainers.image.source="https://github.com/bkrishna1104/shopflow"
 
-# Never run as root: if the app is compromised, the attacker is not root in
-# the container. The official node image ships a ready-made 'node' user.
+# Never run as root: if the app is compromised, the attacker is not root in the container.
 USER node
 EXPOSE 8080
 
